@@ -1,0 +1,207 @@
+---
+title: "bike_analysis"
+output:
+  pdf_document: default
+  html_document: default
+date: '2024-01-29'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install.packages("dplyr")
+#install.packages("tidyverse")
+#install.packages("cli")
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(cli)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+
+#Read in the data
+
+setwd("C:/Users/camip/OneDrive/Desktop/Trip_Data")
+getwd()
+ride_data1 <- read.csv("202301-divvy-tripdata.csv")
+ride_data2 <- read.csv("202302-divvy-tripdata.csv")
+
+
+str(ride_data1)
+str(ride_data2)
+#ride_data3 <- read.csv("202303-divvy-tripdata.csv")
+#ride_data4 <- read.csv("202304-divvy-tripdata.csv")
+#ride_data5 <- read.csv("202305-divvy-tripdata.csv")
+#ride_data6 <- read.csv("202306-divvy-tripdata.csv")
+#ride_data7 <- read.csv("202307-divvy-tripdata.csv")
+#ride_data8 <- read.csv("202308-divvy-tripdata.csv")
+#ride_data9 <- read.csv("202309-divvy-tripdata.csv")
+#ride_data10 <- read.csv("202310-divvy-tripdata.csv")
+#ride_data11 <- read.csv("202311-divvy-tripdata.csv")
+#ride_data12 <- read.csv("202312-divvy-tripdata.csv")
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r pressure341, echo=FALSE}
+
+
+##THIS CHUNK ONLY APPLICABLE IF WANT MERGED DATA (AGGREGATE DATA)
+
+
+merged_data <- merge(ride_data1, ride_data2, all = TRUE)
+#merged_data2 <- merge(merged_data, ride_data3, all = TRUE)
+#merged_data3 <- merge(merged_data2, ride_data4, all = TRUE)
+#merged_data4 <- merge(merged_data3, ride_data5, all = TRUE)
+#merged_data5 <- merge(merged_data4, ride_data6, all = TRUE)
+
+#save new merged file in CSV format
+write.csv(merged_data, "C:\\Users\\camip\\OneDrive\\Desktop\\Trip_Data\\TwoMonths.csv", row.names=FALSE)
+
+
+
+#View(merged_data)
+
+```
+
+
+
+```{r inspecting, echo=FALSE}
+
+
+table(all_trips$member_casual)
+colnames(merged_data)  #List of column names
+nrow(merged_data)  #How many rows are in data frame?
+dim(merged_data)  #Dimensions of the data frame?
+head(merged_data)  #See the first 6 rows of data frame.  Also tail(all_trips)
+str(merged_data)  #See list of columns and data types (numeric, character, etc)
+summary(merged_data) 
+
+
+```
+
+
+```{r run time, echo=FALSE}
+
+#Change the Chr to a Date/Time Format to do calculations
+merged_data$started_at <- as.POSIXct(merged_data$started_at, format = "%Y-%m-%d %H:%M:%S")
+
+merged_data$ended_at <- as.POSIXct(merged_data$ended_at, format = "%Y-%m-%d %H:%M:%S")
+
+
+merged_data <- merged_data %>% mutate(duration = ended_at - started_at)
+
+#Remove Columns With Negative Duration
+merged_data <- merged_data[merged_data$duration >= 0, ]
+
+View(merged_data)
+
+```
+
+
+```{r creating visual, echo=FALSE}
+
+#number of members Vs. Non-member Rides
+#ggplot(data = merged_data5) + geom_bar(aes(x=member_casual))
+
+
+#takes the mean on duration and changes it into minutes
+average_data <- merged_data %>%
+  group_by(member_casual) %>%
+  summarize(mean_duration = mean(duration/60))
+
+
+
+ggplot(merged_data) + geom_col(aes(x=member_casual, y=(duration/60), fill=member_casual)) + labs(title="Total Ride Duration Based on Member Type", fill="Rider Type", x="Rider Type", y="Duration (min)") + scale_y_continuous(limits = c(0, 5000000), breaks = seq(0,5000000, by=1000000))
+
+
+
+ggplot(average_data) + geom_col(aes(x=member_casual, y=mean_duration, fill=member_casual)) + labs(title="Average Ride Duration Based on Member Type", fill="Rider Type", x="Rider Type", y="Average Duration (min)")
+
+
+
+#ggplot(data = merged_data5) + geom_col(aes(x=member_casual, y=avg_dur))
+```
+
+
+
+```{r pressure, echo=FALSE}
+
+#Determining which bike choices members Vs Non-Members Choose
+merged_data <- merged_data %>% mutate(rideable_type = case_when(
+    rideable_type == "electric_bike" ~ "Electric",
+    rideable_type == "classic_bike" ~ "Classic",
+    rideable_type == "docked_bike" ~ "Docked",
+    TRUE ~ rideable_type  # Keep other values unchanged
+  ))
+
+
+ggplot(data = merged_data) + geom_bar(aes(x=rideable_type, color=member_casual)) + facet_wrap(~member_casual) + labs(title="Bike Choice by Member Status", x="Ride Type", color="Rider Type")
+```
+
+
+
+
+
+
+
+
+
+```{r days, echo=FALSE}
+
+merged_data$day_of_week <- weekdays(merged_data$started_at)
+
+merged_data$day_of_Week_ord <- factor(merged_data$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"), ordered = TRUE)
+
+ggplot(merged_data) + geom_bar(aes(x=day_of_Week_ord, color=member_casual)) + facet_wrap(~member_casual) + labs(title="How Often Members Vs. Non-Members Bike On Weekdays", x="Day Of Week", y="Number Of Rides", color="Rider Type") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+```
+
+
+```{r howlong, echo=FALSE}
+
+# Calculate mean duration for each combination of member_casual and day_of_Week_ord
+duration_summary <- merged_data %>%
+  group_by(member_casual, day_of_Week_ord) %>%
+  summarize(mean_duration = mean(duration/60))
+
+# Plotting
+ggplot(duration_summary, aes(x = day_of_Week_ord, y = mean_duration, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Trip Duration by Day of the Week and Member Type",
+       x = "Day of the Week",
+       y = "Average Trip Duration (minutes)",
+       fill = "Rider Type Type") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+
+```
+
+```{r save, echo=FALSE}
+
+
+
+write.csv(merged_data, "C:\\Users\\camip\\OneDrive\\Desktop\\Trip_Data\\Final_Merged_Data_For_Tableau.csv", row.names=FALSE)
+
+
+```
+
