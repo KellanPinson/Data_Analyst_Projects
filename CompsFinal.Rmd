@@ -1,0 +1,340 @@
+---
+title: "R Comps Final"
+output: pdf_document
+pdf_document: default
+html_document:
+df_print: paged
+header-includes:
+- \usepackage{dcolumn}
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(car)
+library(broom)
+library(modelsummary)
+library(dplyr)
+library(foreign)
+library(Hmisc)
+library(summarytools)
+library(car)
+library(stargazer)
+library(sandwich)
+#library(ggplot2)
+# install.packages("plm")
+# install.packages("sandwich")
+
+#install.packages("summarytools")
+#install.packages("stargazer")
+#install.packages("ggplot2")
+#install.packages("Hmisc")
+#install.packages("xfun")
+#tinytex::reinstall_tinytex()
+#install.packages("tinytex")
+#install.packages("ivreg")
+#install.packages("dplyr")
+#install.packages("tidyverse")
+#install.packages("lubridate")
+#install.packages("scales")
+#install.packages("car")
+#install.packages("broom")
+#install.packages("modelsummary")
+
+
+graphics.off()
+setwd("C:/Users/camip/OneDrive/Desktop/Comps")
+
+getwd()
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+# FF <- read_csv("F-F_Research_Data_Factors_daily.CSV", 
+#     col_types = cols(...1 = col_date(format = "%Y%m%d")), 
+#     skip = 3) %>% 
+#   rename(date = `...1`, "Excess Return" = `...2`, "RF" = `...5`) %>% 
+#   select(date, `Excess Return`,`RF`)
+# view(FF)
+
+FF <- read_csv("F-F_Research_Data_Factors_daily.CSV", 
+    col_types = cols(...1 = col_date(format = "%Y%m%d")), 
+    skip = 4) %>% 
+  rename(date = `...1`, "Excess Return" = `Mkt-RF`) %>% 
+  select(date, `Excess Return`,`RF`)
+
+#view(FF)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r pressure1, echo=FALSE}
+
+
+#HTZ_prices <- read_csv("HTZ_prices.csv")
+
+
+GME_prices <- read_csv("GME.csv") %>% 
+  select(c(1,5)) %>% 
+  mutate(GME_ret = 100*(Close - lag(Close))/lag(Close)) %>% 
+ rename(date = Date)%>% 
+  mutate(date = lubridate::mdy(date), format = "%m/%d%Y") %>% 
+ select(c(1,3))
+
+#view(GME_prices)
+
+
+newData <- left_join(GME_prices, FF, by = "date") %>% mutate(GME_excess_ret = GME_ret - RF)
+
+#view(newData)
+#summary(newData)
+```
+
+
+
+```{r pressure2, echo=FALSE}
+
+GME_ff_plot <- newData %>% 
+  pivot_longer(c = -date) %>% 
+  filter(name %in% c("Excess Return","GME_excess_ret"))
+
+ggplot(GME_ff_plot, aes(x = date, y = value, color = name)) +
+  geom_line(size = 1)+
+  scale_colour_manual(values = c("GME_excess_ret" = "red", "Excess Return" = "blue"),name = 'Excess returns', guide = 'legend', labels = c('GameStop','Market'))+ labs(y="Daily Return (Percentage)", x="Date", title="GME Daily Returns") +
+  # geom_vline(xintercept = ymd("2021-10-25"))+
+  scale_x_date(limits = ymd(c("2020-10-01","2021-06-25")),date_labels = "%b %d", label = "Date")+
+  # ylab("Percentage points")+
+  theme_classic()
+
+
+
+```
+
+
+```{r pressure3, echo=FALSE}
+
+
+Trend <- read_csv("TrendData.csv", skip = 2) %>% rename(date = Date) %>% mutate(date = lubridate::mdy(date), format = "%m/%d%Y")
+
+#TrendNew <- Trend %>% select(c(1, 2))
+
+#view(Trend)
+
+
+#CombinedData <- merge(GME_prices, Trend, by = "date")
+CombinedData <- left_join(GME_prices, Trend, by = "date")
+
+
+
+CombinedData <- CombinedData %>% select(c(2, 3)) %>% 
+  mutate(GME2 = str_replace(GME,"<1","0")) %>% 
+  mutate(GME2 = as.numeric(GME2))
+
+#view(CombinedData)
+
+model.1 <- lm(GME_ret ~ GME2+ lag(GME_ret), data = CombinedData)
+
+#summary(model.1)
+
+modelsummary::modelsummary(model.1, vcov = "robust")
+
+ggplot(CombinedData, aes(x = GME2, y = GME_ret)) + geom_smooth(method = "lm") + labs(title="Exposure on GME Daily Returns", x ="Exposure", y = "Daily Return (Percentage)") +
+  geom_point()
+
+
+
+#ggplot(model.1)
+# if (Trend.[i] == "<1"){
+#   
+#   Trend.GME[i] == "0" 
+#   
+#   
+# }
+
+#view(Trend)
+
+# str(Trend)
+# str(GME_prices)
+# str(FF)
+```
+
+
+
+
+```{r pressure4, echo=FALSE}
+
+TSLA_prices <- read_csv("TSLA.csv") %>% 
+  select(c(1,5)) %>% 
+  mutate(TSLA_ret = 100*(Close - lag(Close))/lag(Close)) %>% 
+ rename(date = Date)%>% 
+  #mutate(date = lubridate::mdy(date), format = "%m/%d%Y") %>% 
+ select(c(1,3))
+
+view(TSLA_prices)
+
+
+newData2 <- left_join(TSLA_prices, FF, by = "date") %>% mutate(TSLA_excess_ret = TSLA_ret - RF)
+
+#summary(newData2)
+
+
+
+TSLA_ff_plot <- newData2 %>% 
+  pivot_longer(c = -date) %>% 
+  filter(name %in% c("Excess Return","TSLA_excess_ret"))
+
+ggplot(TSLA_ff_plot, aes(x = date, y = value, color = name)) +
+  geom_line(size = 1)+
+  scale_colour_manual(values = c("TSLA_excess_ret" = "red", "Excess Return" = "blue"),name = 'Excess returns', guide = 'legend', labels = c('Tesla','Market'))+ labs(y="Daily Return (Percentage)", x="Date", title="TSLA Daily Returns") +
+  scale_x_date(limits = ymd(c("2020-10-01","2021-06-25")),date_labels = "%b %d", label = "Date")+
+  
+  # geom_vline(xintercept = ymd("2021-10-25"))+
+  # scale_x_date(limits = ymd(c("2021-07-01","2022-01-01")),date_labels = "%b %d", label = "Date")+
+  # ylab("Percentage points")+
+  theme_classic()
+
+
+```
+
+
+```{r pressure5, echo=FALSE}
+
+Trend2 <- read_csv("TSLATrend.csv", skip = 2) %>% rename(date = Date) %>% mutate(date = lubridate::mdy(date), format = "%m/%d%Y")
+
+
+CombinedData2 <- left_join(TSLA_prices, Trend2, by = "date")
+
+
+
+CombinedData2 <- CombinedData2 %>% select(c(2, 3)) %>% 
+  mutate(GME3 = str_replace(TSLA,"<1","0")) %>% 
+  mutate(GME3 = as.numeric(TSLA))
+
+#view(CombinedData2)
+ 
+model.2 <- lm(TSLA_ret ~ GME3 + lag(TSLA_ret), data = CombinedData2)
+
+summary(model.2)
+
+modelsummary::modelsummary(model.2, vcov = "robust")
+
+ggplot(CombinedData2, aes(x = GME3, y = TSLA_ret)) + geom_smooth(method = "lm") + labs(title="Exposure on TSLA Daily Returns", x ="Exposure", y = "Daily Return (Percentage)") + 
+  geom_point()
+
+
+
+```
+
+
+
+```{r pressure8, echo=FALSE}
+
+AMC_prices <- read_csv("AMC.csv") %>% 
+  select(c(1,5)) %>% 
+  mutate(AMC_ret = 100*(Close - lag(Close))/lag(Close)) %>% 
+ rename(date = Date)%>% 
+  #mutate(date = lubridate::mdy(date), format = "%m/%d%Y") %>% 
+ select(c(1,3))
+
+view(AMC_prices)
+
+
+newData3 <- left_join(AMC_prices, FF, by = "date") %>% mutate(AMC_excess_ret = AMC_ret - RF)
+
+#summary(newData3)
+
+
+
+AMC_ff_plot <- newData3 %>% 
+  pivot_longer(c = -date) %>% 
+  filter(name %in% c("Excess Return","AMC_excess_ret"))
+
+ggplot(AMC_ff_plot, aes(x = date, y = value, color = name)) +
+  geom_line(size = 1)+
+  scale_colour_manual(values = c("AMC_excess_ret" = "red", "Excess Return" = "blue"),name = 'Excess returns', guide = 'legend', labels = c('AMC','Market'))+ labs(y="Daily Return (Percentage)", x="Date", title="AMC Daily Returns") +
+  scale_x_date(limits = ymd(c("2020-10-01","2021-06-25")),date_labels = "%b %d", label = "Date")+
+  # geom_vline(xintercept = ymd("2021-10-25"))+
+  # scale_x_date(limits = ymd(c("2021-07-01","2022-01-01")),date_labels = "%b %d", label = "Date")+
+  # ylab("Percentage points")+
+  theme_classic()
+
+
+```
+
+```{r pressure9, echo=FALSE}
+Trend3 <- read_csv("AMCTrend.csv", skip = 2) %>% rename(date = Date) %>% mutate(date = lubridate::mdy(date), format = "%m/%d%Y")
+
+
+CombinedData3 <- left_join(AMC_prices, Trend3, by = "date")
+
+
+
+CombinedData3 <- CombinedData3 %>% select(c(2, 3)) %>% 
+  mutate(GME4 = str_replace(AMC,"<1","0")) %>% 
+  mutate(GME4 = as.numeric(AMC))
+
+#view(CombinedData2)
+ 
+model.3 <- lm(AMC_ret ~ GME4 + lag(AMC_ret), data = CombinedData3)
+
+
+summary(model.3)
+
+#modelsummary::modelsummary(model.3, vcov = "robust")
+
+ggplot(CombinedData3, aes(x = GME4, y = AMC_ret))+ geom_smooth(method = "lm") + labs(title="Exposure on AMC Daily Returns", x ="Exposure", y = "Daily Return (Percentage)") + geom_point()
+
+
+
+
+```
+
+```{r mylatextable, results = "asis"}
+
+cov1 <- vcovHC(model.1, type = "HC1")
+robust_se <- sqrt(diag(cov1))
+  
+cov2 <- vcovHC(model.2, type = "HC1")
+robust_se2 <- sqrt(diag(cov2))
+
+cov3 <- vcovHC(model.3, type = "HC1")
+robust_se3 <- sqrt(diag(cov3))
+
+
+
+stargazer(model.1,model.2,model.3, title="Summary of Exposure on Daily Returns For Stocks",type="latex", se = list(robust_se, robust_se2, robust_se3),keep.stat = "all",align = TRUE, dep.var.labels=c("GME", "Tesla", "AMC"), covariate.labels = c("Google Trends 'GME' (2020-2021)", "Lag Returns", "Google Trends 'TSLA' (2020-2021)", "Lag Returns", "Google Trends 'AMC'", "Lag Returns"))
+
+
+
+#modelsummary::modelsummary(list(model.1,model.2,model.3), vcov = "robust")
+
+
+```
+
+
+
+
